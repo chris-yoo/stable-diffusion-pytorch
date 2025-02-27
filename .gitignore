@@ -163,3 +163,5 @@ data/
 images/
 
 .DS_Store
+
+.vscode
