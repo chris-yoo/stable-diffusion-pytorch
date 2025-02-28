@@ -21,7 +21,7 @@ class SelfAttention(nn.Module):
             d_embed // n_heads
         )  # 위의 self.out_proj 의 부분의 in_channel 과 out_channel 이 같은 이유는 이런식으로 이미 각 헤드별 차원을 맞춰줬기 때문이다.
 
-    def forward(self, x: torch.Tensor, casual_mask=False):
+    def forward(self, x: torch.Tensor, causal_mask=False):
         # x:(Batch_Size, Seq_len, Dim)
 
         input_shape = x.shape
@@ -41,7 +41,7 @@ class SelfAttention(nn.Module):
         # 행에 쿼리에 대한 정보가 있음
         weight = q @ k.transpose(-1, -2)
 
-        if casual_mask:
+        if causal_mask:
             # Mask where the upper trianbles (above the principle diagonal) is made up of 1
             mask = torch.ones_like(weight, dtype=torch.bool).triu(1)
             weight.masked_fill_(
