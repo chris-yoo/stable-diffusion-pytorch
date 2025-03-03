@@ -325,3 +325,6 @@ class Diffusion(nn.Module):
 
         # (Batch, 320, Height /8, Width/8) -> (Batch, 4, Height /8, Width/8) input 이랑 output Dimension 이 같아야 한다.
         output = self.final(output)
+
+        # z_t -> z_prev 로 가기위해서 제거해야하는 노이즈가 출력이다. 노이즈는 이미지와 출력이 값아야 한다. z980 -> z960 으로 가기 위해 제거해야하는 노이즈
+        return output
