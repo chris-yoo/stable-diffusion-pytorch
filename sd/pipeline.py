@@ -107,7 +107,7 @@ def generate(
         # sampler 방식을 설정, step 수를 설정한다.
         if sampler_name == "ddpm":
             sampler = DDPMSampler(generator)
-            sampler.set_inference_steps(n_inference_steps)
+            sampler.set_inference_timesteps(n_inference_steps)
         else:
             raise ValueError(f"Unknown sampler {sampler_name}")
 
