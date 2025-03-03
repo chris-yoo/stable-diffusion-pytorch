@@ -19,11 +19,11 @@ class DDPMSampler:
         )
         self.alphas = 1.0 - self.betas
         # [alpha_0, alpha_0 * alpha_1, alpha_0 * alpha_1 * alpha_2 , alpha_0 * alpha_1 * alpha_2 * alpha_3]
-        self.alphas_comprod = torch.cumprod(self.alphas, 0)
+        self.alphas_cumprod = torch.cumprod(self.alphas, 0)
         self.one = torch.tensor(1.0)
 
         self.generator = generator
-        self.num_training_steps = num_training_steps
+        self.num_train_timesteps = num_training_steps
         # [999, 998, ..., 2, 1, 0]
         self.timesteps = torch.from_numpy(np.arange(0, num_training_steps)[::-1].copy())
 
@@ -31,7 +31,7 @@ class DDPMSampler:
         self.num_inference_steps = num_inference_steps
         # 999, 998, 997 -> 1000 steps
         # 999, 979, 957 -> 50 steps
-        step_ratio = self.num_training_steps // num_inference_steps
+        step_ratio = self.num_train_timesteps // num_inference_steps
         timesteps = (
             (np.arange(0, num_inference_steps) * step_ratio)
             .round()[::-1]
@@ -41,7 +41,7 @@ class DDPMSampler:
         self.timesteps = torch.from_numpy(timesteps)
 
     def _get_previous_timestep(self, timestep: int):
-        prev_t = timestep - (self.num_training_steps // self.num_inference_steps)
+        prev_t = timestep - (self.num_train_timesteps // self.num_inference_steps)
         return prev_t
 
     def _get_variance(self, timestep: int):
@@ -126,7 +126,7 @@ class DDPMSampler:
     def add_noise(
         self, original_samples: torch.FloatTensor, timesteps: torch.IntTensor
     ):
-        alpha_cumprod = self.alphas_comprod.to(
+        alpha_cumprod = self.alphas_cumprod.to(
             device=original_samples.device, dtype=original_samples.dtype
         )
         timesteps = timesteps.to(original_samples.device)
@@ -141,7 +141,7 @@ class DDPMSampler:
         while len(sqrt_one_minus_alpha_prod.shape) < len(original_samples.shape):
             sqrt_one_minus_alpha_prod = sqrt_one_minus_alpha_prod.unsqueeze(-1)
 
-        noise = torch.rand(
+        noise = torch.randn(
             original_samples.shape,
             generator=self.generator,
             device=original_samples.device,

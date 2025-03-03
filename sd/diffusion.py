@@ -80,9 +80,9 @@ class UNET_ResidualBlock(nn.Module):
 
 class UNET_AttentionBlock(nn.Module):
 
-    def __init__(self, n_head: int, n_embc: int, d_context=768):
+    def __init__(self, n_head: int, n_embd: int, d_context=768):
         super().__init__()
-        channels = n_head + n_embc
+        channels = n_head + n_embd
         self.groupnorm = nn.GroupNorm(32, channels, eps=1e-6)
         self.conv_input = nn.Conv2d(channels, channels, kernel_size=1, padding=0)
         self.layernorm_1 = nn.LayerNorm(channels)
@@ -157,12 +157,12 @@ class UpSample(nn.Module):
 
     def __init__(self, channels: int):
         super().__init__()
-        self.conv = nn.Conv2d(channels, kernel_size=3, padding=1)
+        self.conv = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
 
     def forward(self, x):
         # (batch, features, height, width) -> (batch, features, height * 2, width * 2)
         x = F.interpolate(
-            x, scale_factor=2, mode="nearesr"
+            x, scale_factor=2, mode="nearest"
         )  # nn.Upsample(scale_factor = 2) 랑 같은 연산이다.
         return self.conv(x)
 
@@ -182,6 +182,8 @@ class SwitchSequential(nn.Sequential):
                 x = layer(x, time)
             else:
                 x = layer(x)
+
+        return x
 
 
 class UNET(nn.Module):
@@ -286,6 +288,25 @@ class UNET(nn.Module):
             ]
         )
 
+    def forward(self, x, context, time):
+        # x: (Batch_Size, 4, Height / 8, Width / 8)
+        # context: (Batch_Size, Seq_Len, Dim)
+        # time: (1, 1280)
+
+        skip_connections = []
+        for layers in self.encoders:
+            x = layers(x, context, time)
+            skip_connections.append(x)
+
+        x = self.bottleneck(x, context, time)
+
+        for layers in self.decoders:
+            # Since we always concat with the skip connection of the encoder, the number of features increases before being sent to the decoder's layer
+            x = torch.cat((x, skip_connections.pop()), dim=1)
+            x = layers(x, context, time)
+
+        return x
+
 
 class UNET_OutputLayer(nn.Module):
     def __init__(self, in_channels: int, out_channels: int):
@@ -312,7 +333,7 @@ class Diffusion(nn.Module):
         self.unet = UNET()
         self.final = UNET_OutputLayer(320, 4)
 
-    def forward(self, latent: torch.Tensor, context: torch.Tensor):
+    def forward(self, latent: torch.Tensor, context: torch.Tensor, time):
         # latent z: (Batch_Size, 4, Height/8, Width/8)
         # context: (Batch_Size, 4, Seq_Len, Dim)
         # time: (1,320)

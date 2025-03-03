@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from torch.nn import fucntional as F
+from torch.nn import functional as F
 from attention import SelfAttention
 
 
@@ -37,7 +37,7 @@ class CLIPLayer(nn.Module):
         self.linear_1 = nn.Linear(n_embd, 4 * n_embd)
         self.linear_2 = nn.Linear(4 * n_embd, n_embd)
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, causal_mask=True):
         # (Batch_Size, Seq_Len, Dim)
         residue = x
 
@@ -55,6 +55,8 @@ class CLIPLayer(nn.Module):
         x = x * torch.sigmoid(1.702 * x)  # Quick activation function
         x = self.linear_2(x)
         x += residue
+
+        return x
 
 
 class CLIP(nn.Module):

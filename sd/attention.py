@@ -28,15 +28,15 @@ class SelfAttention(nn.Module):
         input_shape = x.shape
         batch_size, sequence_length, d_embed = input_shape
 
-        intermim_shape = (batch_size, sequence_length, self.n_heads, self.d_head)
+        interim_shape = (batch_size, sequence_length, self.n_heads, self.d_head)
 
         # (Batch_Size, Seq_len, Dim) -> (Batch_Size, Seq_len, Dim*3) -> 3 tensor of shape (Batch_Size, Seq_len, Dim)
         q, k, v = self.in_proj(x).chunk(3, dim=-1)  # 마지막 차원을 기준으로 나눈다.
 
         # (Batch_Size, Seq_len, Dim) -> (Batch_Size, Seq_len, H, Dim/H) -> (Batch_Size, H,Seq_len, Dim/H)
-        q = q.view(intermim_shape).transpose(1, 2)
-        k = k.view(intermim_shape).transpose(1, 2)
-        v = v.view(intermim_shape).transpose(1, 2)
+        q = q.view(interim_shape).transpose(1, 2)
+        k = k.view(interim_shape).transpose(1, 2)
+        v = v.view(interim_shape).transpose(1, 2)
 
         # (Batch_Size, H,Seq_len, Seq_len)
         # 행에 쿼리에 대한 정보가 있음
@@ -72,13 +72,13 @@ class CrossAttention(nn.Module):
         n_heads: int,
         d_embed: int,
         d_cross: int,
-        in_pro_bias=True,
+        in_proj_bias=True,
         out_proj_bias=True,
     ):
         super().__init__()
-        self.q_proj = nn.Linear(d_embed, d_embed, bias=in_pro_bias)
-        self.k_proj = nn.Linear(d_cross, d_embed, bias=in_pro_bias)
-        self.v_proj = nn.Linear(d_cross, d_embed, bias=in_pro_bias)
+        self.q_proj = nn.Linear(d_embed, d_embed, bias=in_proj_bias)
+        self.k_proj = nn.Linear(d_cross, d_embed, bias=in_proj_bias)
+        self.v_proj = nn.Linear(d_cross, d_embed, bias=in_proj_bias)
         self.out_proj = nn.Linear(d_embed, d_embed, bias=out_proj_bias)
         self.n_heads = n_heads
         self.d_head = (

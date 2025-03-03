@@ -122,7 +122,9 @@ def generate(
             input_image_tensor = input_image.resize((WIDTH, HEIGHT))
             input_image_tensor = np.array(input_image_tensor)
             # (height, width, channel)
-            input_image_tensor = torch.tensor(input_image_tensor, dtype=torch.float32)
+            input_image_tensor = torch.tensor(
+                input_image_tensor, dtype=torch.float32, device=device
+            )
             input_image_tensor = rescale(input_image_tensor, (0, 255), (-1, 1))
             # (height, width, channels) -> (batch, height, width, channels)
             input_image_tensor = input_image_tensor.unsqueeze(0)
@@ -224,4 +226,4 @@ def get_time_embedding(timestep):
     x = torch.tensor([timestep], dtype=torch.float32)[:, None] * freqs[None]
     # (1,320)
     # cos 과 sin 을 적용해주고 concatenate
-    return torch.cat([torch.cos[x], torch.sin(x)], dim=-1)
+    return torch.cat([torch.cos(x), torch.sin(x)], dim=-1)

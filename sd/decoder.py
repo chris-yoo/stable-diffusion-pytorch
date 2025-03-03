@@ -22,9 +22,12 @@ class VAE_AttentionBlock(nn.Module):
     def forward(self, x: torch.Tensor):
         residue = x
 
+        x = self.groupnorm(x)
+
         n, c, h, w = x.shape
         # (Batch_Size, Features, Height, Width) ->  x:(Batch_Size, Features, Height* Width)
-        x = x.view(n, c, h * w)
+
+        x = x.view((n, c, h * w))
 
         # (Batch_Size, Features, Height * Width) ->  x:(Batch_Size, Height * Width, Features)
         x = x.transpose(-1, -2)
