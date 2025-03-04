@@ -16,17 +16,21 @@ from attention import SelfAttention, CrossAttention
 class TimeEmbedding(nn.Module):
     def __init__(self, n_embd):
         super().__init__()
-        self.linear_1 = nn.Linear(n_embd, n_embd * 4)
-        self.linear_2 = nn.Linear(n_embd * 4, n_embd * 4)
+        self.linear_1 = nn.Linear(n_embd, 4 * n_embd)
+        self.linear_2 = nn.Linear(4 * n_embd, 4 * n_embd)
 
     def forward(self, x):
         # x: (1, 320)
-        # x: (1, 320) -> (1, 1280)
+
+        # (1, 320) -> (1, 1280)
         x = self.linear_1(x)
-        # 비선형성 추가
+
+        # (1, 1280) -> (1, 1280)
         x = F.silu(x)
-        # x: (1, 1280) -> (1, 1280)
+
+        # (1, 1280) -> (1, 1280)
         x = self.linear_2(x)
+
         return x
 
 
@@ -37,7 +41,8 @@ class UNET_ResidualBlock(nn.Module):
         self.conv_feature = nn.Conv2d(
             in_channels, out_channels, kernel_size=3, padding=1
         )
-        self.linear_time = nn.Linear(n_time, out_channels)
+        # Add a projection layer to match dimensions
+        self.linear_time = nn.Linear(n_time, out_channels)  # This line is key
         self.groupnorm_merged = nn.GroupNorm(32, out_channels)
         self.conv_merged = nn.Conv2d(
             out_channels, out_channels, kernel_size=3, padding=1
@@ -52,27 +57,23 @@ class UNET_ResidualBlock(nn.Module):
 
     def forward(self, feature, time):
         # feature: (batch, in_channels, height, width)
-        # time: (1,1280)
-        # time embedding 을 더해주는 방식으로 작동한다.
+        # time: (1, 1280)
 
         residue = feature
 
         feature = self.groupnorm_feature(feature)
-
         feature = F.silu(feature)
-
         feature = self.conv_feature(feature)
 
+        # Project time embedding to match feature channels
         time = F.silu(time)
+        time_proj = self.linear_time(time)  # This projects from 1280 to out_channels
 
-        merged = feature + time.unsqueeze(-1).unsqueeze(
-            -1
-        )  # 마지막차원을 두번 추가하면서 feature 와 차원이 같아진다.
+        # Now add the projected time to the feature
+        merged = feature + time_proj.unsqueeze(-1).unsqueeze(-1)
 
         merged = self.groupnorm_merged(merged)
-
         merged = F.silu(merged)
-
         merged = self.conv_merged(merged)
 
         return merged + self.residual_layer(residue)
@@ -82,7 +83,13 @@ class UNET_AttentionBlock(nn.Module):
 
     def __init__(self, n_head: int, n_embd: int, d_context=768):
         super().__init__()
-        channels = n_head + n_embd
+        channels = n_head * n_embd
+
+        #  문제 발생 가능: `num_channels`가 32의 배수가 아닐 경우 에러 발생
+        if channels % 32 != 0:
+            raise ValueError(
+                f" num_channels ({channels}) must be divisible by num_groups (32)"
+            )
         self.groupnorm = nn.GroupNorm(32, channels, eps=1e-6)
         self.conv_input = nn.Conv2d(channels, channels, kernel_size=1, padding=0)
         self.layernorm_1 = nn.LayerNorm(channels)

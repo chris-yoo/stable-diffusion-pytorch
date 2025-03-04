@@ -67,28 +67,42 @@ def generate(
         clip.to(device)
 
         if do_cfg:
-            # Conver the prompt into tokens using the tokennizer
-            # padding 을 통해서 seq_len 를 강제로 77에 맞춰준다.
+            # Convert the prompt into tokens using the tokenizer
             cond_tokens = tokenizer.batch_encode_plus(
-                [prompt], padding="max_length", max_length=77
-            )
-            # (batch, seq_len) tensor 로 바꿔준다., type 설정 및, device 를 설정해준다.
-            cond_tokens = torch.tensor(
-                cond_tokens, dtype=torch.long, device=device
-            ).input_ids
-            # (batch, seq_len) -> (batch, seq_len, dim)
-            cond_context = clip(cond_tokens)
-            # Convert into a list of length Seq_Len=77
+                [prompt], padding="max_length", max_length=77, return_tensors="pt"
+            )["input_ids"].to(device)
+
+            cond_context = clip(
+                cond_tokens
+            )  # Expected shape: (Batch_Size, Seq_Len, Dim)
+
+            # Convert the unconditional prompt into tokens
             uncond_tokens = tokenizer.batch_encode_plus(
-                [uncond_prompt], dtype=torch.long, device=device
-            ).input_ids
-            # (Batch_Size, Seq_Len)
-            uncond_tokens = torch.tensor(uncond_tokens, dtype=torch.long, device=device)
-            # (Batch_Size, Seq_Len) -> (Batch_Size, Seq_Len, Dim)
-            uncond_context = clip(uncond_tokens)
+                [uncond_prompt],
+                padding="max_length",
+                max_length=77,
+                return_tensors="pt",
+            )["input_ids"].to(device)
+
+            uncond_context = clip(
+                uncond_tokens
+            )  # Expected shape: (Batch_Size, Seq_Len, Dim)
+
+            # Debug: Print shapes
+            print(
+                f"cond_context shape: {cond_context.shape}, uncond_context shape: {uncond_context.shape}"
+            )
+
+            # Ensure both tensors have matching dimensions
+            if cond_context.dim() == 2:
+                cond_context = cond_context.unsqueeze(
+                    1
+                )  # Convert to (Batch_Size, 1, Dim)
+            if uncond_context.dim() == 2:
+                uncond_context = uncond_context.unsqueeze(1)
+
             # (Batch_Size, Seq_Len, Dim) + (Batch_Size, Seq_Len, Dim) -> (2 * Batch_Size, Seq_Len, Dim)
-            # 나중에 inference 단계에서 latent 를 2배로 만들어준다.
-            context = torch.cat([cond_context, uncond_context])
+            context = torch.cat([cond_context, uncond_context], dim=1)
 
         else:
             # CFG 는 프롬프트 반영강도를 조절할 수 있지만 이경우는 조절할 수 없음
@@ -201,7 +215,7 @@ def generate(
         return images[0]
 
 
-def rescale(z, old_range, new_range, clamp=False):
+def rescale(x, old_range, new_range, clamp=False):
     old_min, old_max = old_range
     new_min, new_max = new_range
     x -= old_min
